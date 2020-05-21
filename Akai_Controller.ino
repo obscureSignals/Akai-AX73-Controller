@@ -6,8 +6,9 @@ int midiChannel = 8;
 //Time between control value updates sent to device. 
 //Longer = fewer updates when knob is turned fast because position has changed by more steps between updates, so parameter on synth actually changes faster
 //Shorter = more updates when knob is turned fast because position has changed by fewer steps between updates, so parameter on synth actually changes slower
-int delayTime = 20; //millisceonds
+int delayTime = 15; //millisceonds
 
+//
 int addressSelect0 = 2;
 int addressSelect1 = 3;
 int addressSelect2 = 4;
@@ -51,7 +52,7 @@ int vcfEGSel = 27; //0-63: Filter uses EGA, 64-127: Filter uses EGO
 int EGAAttack = 73; //0-127 VCA always uses this EG
 int EGADecay = 28; //0-127 
 int EGASustain = 29; //0-127
-int EGARealease = 72; //0-127 
+int EGARelease = 72; //0-127 
 
 int EGOAttack = 30; //0-127 VCO always uses this EG
 int EGODecay = 31; //0-127
@@ -80,16 +81,14 @@ int sust = 64; //0-127
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 
 ResponsiveAnalogRead respvcfCutoff(potMux1, true);
-ResponsiveAnalogRead respEGARealease(slideMux, true);
+ResponsiveAnalogRead respEGARelease(slideMux, true);
 ResponsiveAnalogRead respvcfRes(potMux1, true);
 ResponsiveAnalogRead respEGASustain(slideMux, true);
 ResponsiveAnalogRead respvcfVelo(potMux1, true);
 ResponsiveAnalogRead respChorus(slideMux, true);
 
 void setup() {
-  // array component_values = [1,2,3,4,5,6];
-  
-  Serial.begin(9600);
+  Serial.begin(9600); //debugging
 
   MIDI.begin();
 
@@ -100,82 +99,24 @@ void setup() {
 }
 
 void loop() {
-  // for (int i=0; i<=7; i++) {
   // select 74HC4051 channel 0 (of 0 to 7)
-  digitalWrite(addressSelect2, LOW);
-  digitalWrite(addressSelect1, LOW);
-  digitalWrite(addressSelect0, LOW);
+  threeBitWrite(0,0,0);
 
-  // allow 50 us for signals to stablize
-  delayMicroseconds(50);
-
-  // read mux outputs at pins 14, 15
-  respvcfCutoff.update();
-  respEGARealease.update();
-  
-  // write responsive mux outputs to mux output variables
-  vcfCutoffValue = respvcfCutoff.getValue()>>3; // bitshift mux output variables from 10 bits to 7 bits
-  if (vcfCutoffValue != vcfCutoffValueLag){
-    vcfCutoffValueLag = vcfCutoffValue;
-    MIDI.sendControlChange(vcfCutoff, vcfCutoffValue, midiChannel);
-    delay (delayTime);
-  }
-      
-  EGAReleaseValue = respEGARealease.getValue()>>3; // bitshift mux output variables from 10 bits to 7 bits
-  if (EGAReleaseValue != EGAReleaseValueLag){
-    EGAReleaseValueLag = EGAReleaseValue;
-    MIDI.sendControlChange(EGARealease, EGAReleaseValue, midiChannel);
-    delay (delayTime);
-  }      
-  
+  sendMIDIData(vcfCutoff, &respvcfCutoff, &vcfCutoffValue, &vcfCutoffValueLag);  
+  sendMIDIData(EGARelease, &respEGARelease, &EGAReleaseValue, &EGAReleaseValueLag);      
 
   // select 74HC4051 channel 1 (of 0 to 7)
-  digitalWrite(addressSelect2, LOW);
-  digitalWrite(addressSelect1, LOW);
-  digitalWrite(addressSelect0, HIGH);
+  threeBitWrite(0,0,1);
 
-  // allow 50 us for signals to stablize
-  delayMicroseconds(50);
+  sendMIDIData(vcfRes, &respvcfRes, &vcfResValue, &vcfResValueLag);  
+  sendMIDIData(EGASustain, &respEGASustain, &EGASustainValue, &EGASustainValueLag);      
 
-  // read mux outputs at pins 14, 15
-  respvcfRes.update();
-  respEGASustain.update();
+  // select 74HC4051 channel 4 (of 0 to 7)
+  threeBitWrite(1,0,0);
   
-  // write responsive mux outputs to mux output variables
-  vcfResValue = respvcfRes.getValue()>>3; // bitshift mux output variables from 10 bits to 7 bits
-  if (vcfResValue != vcfResValueLag){
-    vcfResValueLag = vcfResValue;
-    MIDI.sendControlChange(vcfRes, vcfResValue, midiChannel);
-    delay (delayTime);
-  }  
+  sendMIDIData(vcfVelo, &respvcfVelo, &vcfVeloValue, &vcfVeloValueLag); 
   
-  EGASustainValue = respEGASustain.getValue()>>3; // bitshift mux output variables from 10 bits to 7 bits
-  if (EGASustainValue != EGASustainValueLag){
-    EGASustainValueLag = EGASustainValue;
-    MIDI.sendControlChange(EGASustain, EGASustainValue, midiChannel);
-    delay (delayTime);
-  }
-    
-   // select 74HC4051 channel 4 (of 0 to 7)
-  digitalWrite(addressSelect2, HIGH);
-  digitalWrite(addressSelect1, LOW);
-  digitalWrite(addressSelect0, LOW);
-
-  // allow 50 us for signals to stablize
-  delayMicroseconds(50);
-
-  // read mux outputs at pins 14, 15
-  respvcfVelo.update();
   respChorus.update();
-  
-  // write responsive mux outputs to mux output variables
-  vcfVeloValue = respvcfVelo.getValue()>>3; // bitshift mux output variables from 10 bits to 7 bits
-  if (vcfVeloValue != vcfVeloValueLag){
-    vcfVeloValueLag = vcfVeloValue;
-    MIDI.sendControlChange(vcfVelo, vcfVeloValue, midiChannel);
-    delay (delayTime);
-  }  
-  
   ChorusValue = respChorus.getValue()>>3; // bitshift mux output variables from 10 bits to 7 bits
   if (ChorusValue < 43) {
     ChorusValue = 0;
@@ -190,13 +131,27 @@ void loop() {
     ChorusValueLag = ChorusValue;
     Serial.println (ChorusValue<<5);
     MIDI.sendControlChange(Chorus, ChorusValue, midiChannel);
-    delay (delayTime);
   }
-    
-  /*respPotMux1.update();
-  potMux1Value = respPotMux1.getValue()>>3;
-  MIDI.sendControlChange(74, potMux1Value, midiChannel);
-  delay (100);
-  */
 
+  delay(delayTime);
 }
+
+void threeBitWrite(byte bit1, byte bit2, byte bit3) {
+  digitalWrite(addressSelect2, bit1);
+  digitalWrite(addressSelect1, bit2);
+  digitalWrite(addressSelect0, bit3);
+  
+  // allow 50 us for signals to stablize
+  delayMicroseconds(50);
+}
+
+void sendMIDIData(int param, ResponsiveAnalogRead *respParam, int *paramValue, int *paramValueLag) {
+  respParam->update();
+  *paramValue = respParam->getValue()>>3; // bitshift mux output variables from 10 bits to 7 bits
+   if (*paramValue != *paramValueLag){ // check value against lag value
+    *paramValueLag = *paramValue; // set new lag value
+    MIDI.sendControlChange(param, *paramValue, midiChannel); // send midi cc data
+    }
+}
+
+
