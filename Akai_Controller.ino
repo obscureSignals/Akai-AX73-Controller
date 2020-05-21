@@ -3,12 +3,11 @@
 
 int midiChannel = 8;
 
-//Time between control value updates sent to device. 
+//Time between control value updates sent to device.
 //Longer = fewer updates when knob is turned fast because position has changed by more steps between updates, so parameter on synth actually changes faster
 //Shorter = more updates when knob is turned fast because position has changed by fewer steps between updates, so parameter on synth actually changes slower
 int delayTime = 15; //millisceonds
 
-//
 int addressSelect0 = 2;
 int addressSelect1 = 3;
 int addressSelect2 = 4;
@@ -28,7 +27,6 @@ int vcfVeloValue;
 int vcfVeloValueLag;
 int ChorusValue;
 int ChorusValueLag;
-
 
 //Midi cc #'s
 int vcoOct = 14; //0-31: 16', 32-63: 8', 64-95: 4', 96-127: 2'
@@ -50,9 +48,9 @@ int HPF = 26; //0-127
 int vcfEGSel = 27; //0-63: Filter uses EGA, 64-127: Filter uses EGO
 
 int EGAAttack = 73; //0-127 VCA always uses this EG
-int EGADecay = 28; //0-127 
+int EGADecay = 28; //0-127
 int EGASustain = 29; //0-127
-int EGARelease = 72; //0-127 
+int EGARelease = 72; //0-127
 
 int EGOAttack = 30; //0-127 VCO always uses this EG
 int EGODecay = 31; //0-127
@@ -76,7 +74,7 @@ int wheelPitchBnd = 45; //0-127 mapped to 0-12
 int wheelVCFamount = 46; //0-127
 int wheelLFOdepth = 47; //0-127
 int midiSplit = 48; //0-42: Off, 43-85: Upp, 86-127: Low
-int sust = 64; //0-127 
+int sust = 64; //0-127
 
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 
@@ -102,20 +100,20 @@ void loop() {
   // select 74HC4051 channel 0 (of 0 to 7)
   threeBitWrite(0,0,0);
 
-  sendMIDIData(vcfCutoff, &respvcfCutoff, &vcfCutoffValue, &vcfCutoffValueLag);  
-  sendMIDIData(EGARelease, &respEGARelease, &EGAReleaseValue, &EGAReleaseValueLag);      
+  sendMIDIData(vcfCutoff, &respvcfCutoff, &vcfCutoffValue, &vcfCutoffValueLag);
+  sendMIDIData(EGARelease, &respEGARelease, &EGAReleaseValue, &EGAReleaseValueLag);
 
   // select 74HC4051 channel 1 (of 0 to 7)
   threeBitWrite(0,0,1);
 
-  sendMIDIData(vcfRes, &respvcfRes, &vcfResValue, &vcfResValueLag);  
-  sendMIDIData(EGASustain, &respEGASustain, &EGASustainValue, &EGASustainValueLag);      
+  sendMIDIData(vcfRes, &respvcfRes, &vcfResValue, &vcfResValueLag);
+  sendMIDIData(EGASustain, &respEGASustain, &EGASustainValue, &EGASustainValueLag);
 
   // select 74HC4051 channel 4 (of 0 to 7)
   threeBitWrite(1,0,0);
-  
-  sendMIDIData(vcfVelo, &respvcfVelo, &vcfVeloValue, &vcfVeloValueLag); 
-  
+
+  sendMIDIData(vcfVelo, &respvcfVelo, &vcfVeloValue, &vcfVeloValueLag);
+
   respChorus.update();
   ChorusValue = respChorus.getValue()>>3; // bitshift mux output variables from 10 bits to 7 bits
   if (ChorusValue < 43) {
@@ -140,7 +138,7 @@ void threeBitWrite(byte bit1, byte bit2, byte bit3) {
   digitalWrite(addressSelect2, bit1);
   digitalWrite(addressSelect1, bit2);
   digitalWrite(addressSelect0, bit3);
-  
+
   // allow 50 us for signals to stablize
   delayMicroseconds(50);
 }
@@ -153,5 +151,3 @@ void sendMIDIData(int param, ResponsiveAnalogRead *respParam, int *paramValue, i
     MIDI.sendControlChange(param, *paramValue, midiChannel); // send midi cc data
     }
 }
-
-
