@@ -6,15 +6,19 @@ int midiChannel = 8; //midi chanel
 //Time between control value updates sent to device.
 //Longer = fewer updates when knob is turned fast because position has changed by more steps between updates, so parameter on synth actually changes faster
 //Shorter = more updates when knob is turned fast because position has changed by fewer steps between updates, so parameter on synth actually changes slower
-int delayTime = 15; //millisceonds
+int delayTime = 15; //milliseconds
 
+// Set pins for mux address select
 int addressSelect0 = 2;
 int addressSelect1 = 3;
 int addressSelect2 = 4;
 
+// set pins to receive data from muxes
 int potMux1 = 15;
 int slideMux = 14;
 
+// Value and ValueLag variables for each control
+// A current value and an old value are kept in order to know when a control has changed
 int vcfCutoffValue;
 int vcfCutoffValueLag;
 int EGAReleaseValue;
@@ -94,6 +98,7 @@ int sust = 64; //0-127
 
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 
+// Responsive Analog Read variables for each control
 ResponsiveAnalogRead respvcfCutoff(potMux1, true);
 ResponsiveAnalogRead respEGARelease(slideMux, true);
 ResponsiveAnalogRead respvcfRes(potMux1, true);
@@ -111,7 +116,7 @@ ResponsiveAnalogRead respLFOwaveform(slideMux, true);
 
 
 void setup() {
-  Serial.begin(9600); //debugging
+  Serial.begin(9600); //for debugging
 
   MIDI.begin();
 
@@ -177,7 +182,7 @@ void threeBitWrite(byte bit1, byte bit2, byte bit3) {
   delayMicroseconds(50);
 }
 
-// check if control has changed. If yes, send midi cc message to synth
+// check if control has changed - if yes, send midi cc message to synth
 void sendMIDIData(int param, ResponsiveAnalogRead *respParam, int *paramValue, int *paramValueLag, int divs) {
   respParam->update(); // update responsive parameter from mux output
   *paramValue = respParam->getValue()>>3; // bitshift responsive parameter from 10 bits to 7 bits and assign to paramValue variable
