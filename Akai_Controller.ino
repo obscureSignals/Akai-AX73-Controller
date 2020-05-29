@@ -1,7 +1,7 @@
 #include <ResponsiveAnalogRead.h>
 #include <MIDI.h>
 
-int midiChannel = 8;
+int midiChannel = 8; //midi chanel
 
 //Time between control value updates sent to device.
 //Longer = fewer updates when knob is turned fast because position has changed by more steps between updates, so parameter on synth actually changes faster
@@ -167,6 +167,7 @@ void loop() {
   delay(delayTime);
 }
 
+// set address for muxes
 void threeBitWrite(byte bit1, byte bit2, byte bit3) {
   digitalWrite(addressSelect2, bit1);
   digitalWrite(addressSelect1, bit2);
@@ -176,13 +177,14 @@ void threeBitWrite(byte bit1, byte bit2, byte bit3) {
   delayMicroseconds(50);
 }
 
+// check if control has changed. If yes, send midi cc message to synth
 void sendMIDIData(int param, ResponsiveAnalogRead *respParam, int *paramValue, int *paramValueLag, int divs) {
   respParam->update(); // update responsive parameter from mux output
-  *paramValue = respParam->getValue()>>3; // bitshift responcive parameter from 10 bits to 7 bits and assign to paramValue variable
+  *paramValue = respParam->getValue()>>3; // bitshift responsive parameter from 10 bits to 7 bits and assign to paramValue variable
   if (divs > 1) { // check if control is switch 
     int incsize = (128/divs); // determine size of switch incrments
-    for (int i=0; i<(divs); i++){ // see which increment the switch is set to
-      if ((*paramValue >= (i * incsize)) && (*paramValue <= ((i+1) * incsize))) {
+    for (int i=0; i<(divs); i++){ 
+      if ((*paramValue >= (i * incsize)) && (*paramValue <= ((i+1) * incsize))) { // see which increment the switch is set to
         *paramValue = ((i * incsize) + (incsize/2)); // set paramValue to value in the middle of the increment 
       }
     }
