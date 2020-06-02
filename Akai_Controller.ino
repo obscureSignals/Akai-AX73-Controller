@@ -6,11 +6,10 @@ int midiChannel = 8;
 //Time between control value updates sent to device.
 //Longer = fewer updates when knob is turned fast because position has changed by more steps between updates, so parameter on synth actually changes faster
 //Shorter = more updates when knob is turned fast because position has changed by fewer steps between updates, so parameter on synth actually changes slower
-int delayTime = 25; //millisceonds
+int DELAY_TIME = 25; //millisceonds
+unsigned long delayStart = 0; // the time the delay started
 
 int noiseCount = 0; //for counting how long the noise control has remained unchanged 
-
-int test = 0;
 
 int addressSelect0 = 14;
 int addressSelect1 = 15;
@@ -232,95 +231,95 @@ void setup() {
   usbMIDI.setHandleNoteOn(OnNoteOn);
   usbMIDI.setHandlePitchChange(OnPitchChange);
 
+  delayStart = millis();
+
 }
 
 void loop() {
 
   usbMIDI.read();
 
-  test++; 
-  Serial.println (test);
+  if ((millis() - delayStart) >= DELAY_TIME) { // only check control positions and send midi cc every DELAY_TIME
+    delayStart += DELAY_TIME; // this prevents drift in the delays
 
-  // select 74HC4051 channel 0 (of 0 to 7)
-  threeBitWrite(0,0,0);
-
-  sendMIDIData(vcoPulseWidth, &respvcoPulseWidth, &vcoPulseWidthValue, &vcoPulseWidthValueLag, 1); //potMux1
-  sendMIDIData(LFOdelay, &respLFOdelay, &LFOdelayValue, &LFOdelayValueLag, 1); //potMux2
-  sendMIDIData(vcoOct, &respvcoOct, &vcoOctValue, &vcoOctValueLag, 4); //potMux3
+    // select 74HC4051 channel 0 (of 0 to 7)
+    threeBitWrite(0,0,0);
   
-  // select 74HC4051 channel 1 (of 0 to 7)
-  threeBitWrite(0,0,1);
+    sendMIDIData(vcoPulseWidth, &respvcoPulseWidth, &vcoPulseWidthValue, &vcoPulseWidthValueLag, 1); //potMux1
+    sendMIDIData(LFOdelay, &respLFOdelay, &LFOdelayValue, &LFOdelayValueLag, 1); //potMux2
+    sendMIDIData(vcoOct, &respvcoOct, &vcoOctValue, &vcoOctValueLag, 4); //potMux3
+    
+    // select 74HC4051 channel 1 (of 0 to 7)
+    threeBitWrite(0,0,1);
+    
+    sendMIDIData(pwms, &resppwms, &pwmsValue, &pwmsValueLag, 1); //potMux1
+    sendMIDIData(wheelLFOdepth, &respwheelLFOdepth, &wheelLFOdepthValue, &wheelLFOdepthValueLag, 1); //potMux2
+    sendMIDIData(vcoWaveForm, &respvcoWaveForm, &vcoWaveFormValue, &vcoWaveFormValueLag, 4); //potMux3
+    
+    // select 74HC4051 channel 2 (of 0 to 7)
+    threeBitWrite(0,1,0);
   
-  sendMIDIData(pwms, &resppwms, &pwmsValue, &pwmsValueLag, 1); //potMux1
-  sendMIDIData(wheelLFOdepth, &respwheelLFOdepth, &wheelLFOdepthValue, &wheelLFOdepthValueLag, 1); //potMux2
-  sendMIDIData(vcoWaveForm, &respvcoWaveForm, &vcoWaveFormValue, &vcoWaveFormValueLag, 4); //potMux3
+    sendMIDIData(vcoEGDepth, &respvcoEGDepth, &vcoEGDepthValue, &vcoEGDepthValueLag, 1); //potMux1
+    sendMIDIData(VCALevel, &respVCALevel, &VCALevelValue, &VCALevelValueLag, 1); //potMux2
+    sendMIDIData(LFOdestination, &respLFOdestination, &LFOdestinationValue, &LFOdestinationValueLag, 4); //potMux3  
   
-  // select 74HC4051 channel 2 (of 0 to 7)
-  threeBitWrite(0,1,0);
-
-  sendMIDIData(vcoEGDepth, &respvcoEGDepth, &vcoEGDepthValue, &vcoEGDepthValueLag, 1); //potMux1
-  sendMIDIData(VCALevel, &respVCALevel, &VCALevelValue, &VCALevelValueLag, 1); //potMux2
-  sendMIDIData(LFOdestination, &respLFOdestination, &LFOdestinationValue, &LFOdestinationValueLag, 4); //potMux3  
-
-  // select 74HC4051 channel 3 (of 0 to 7)
-  threeBitWrite(0,1,1);
-
-  // noise control has special requirements
-  respbalance.update(); // update responsive parameter from mux output
-  balanceValue = respbalance.getValue()>>3; // bitshift responcive parameter from 10 bits to 7 bits and assign to paramValue variable
-  if (balanceValue != balanceValueLag) { // check value against lag value
-    balanceValueLag = balanceValue; // set new lag value
-    MIDI.sendControlChange(balance, balanceValue, midiChannel); // send midi cc data
-    if (noiseCount > 200){ // if, prior to this event, the noise control had not been changed for more than 200 cycles
-      MIDI.sendControlChange(noise, 127, midiChannel); // turn noise on
-      MIDI.sendControlChange(sampler, 0, midiChannel); // turn smapler off
-      noiseCount = 0;
-      }
-   }
-   else {
-     noiseCount++;
-   }
+    // select 74HC4051 channel 3 (of 0 to 7)
+    threeBitWrite(0,1,1);
   
-  sendMIDIData(VCAVelo, &respVCAVelo, &VCAVeloValue, &VCAVeloValueLag, 1); //potMux2
-  sendMIDIData(LFOwaveform, &respLFOwaveform, &LFOwaveformValue, &LFOwaveformValueLag, 5); //potMux3  
+    // noise control has special requirements
+    respbalance.update(); // update responsive parameter from mux output
+    balanceValue = respbalance.getValue()>>3; // bitshift responcive parameter from 10 bits to 7 bits and assign to paramValue variable
+    if (balanceValue != balanceValueLag) { // check value against lag value
+      balanceValueLag = balanceValue; // set new lag value
+      MIDI.sendControlChange(balance, balanceValue, midiChannel); // send midi cc data
+      if (noiseCount > 200){ // if, prior to this event, the noise control had not been changed for more than 200 cycles
+        MIDI.sendControlChange(noise, 127, midiChannel); // turn noise on
+        MIDI.sendControlChange(sampler, 0, midiChannel); // turn smapler off
+        noiseCount = 0;
+        }
+     }
+     else {
+       noiseCount++;
+     }
+    
+    sendMIDIData(VCAVelo, &respVCAVelo, &VCAVeloValue, &VCAVeloValueLag, 1); //potMux2
+    sendMIDIData(LFOwaveform, &respLFOwaveform, &LFOwaveformValue, &LFOwaveformValueLag, 5); //potMux3  
+    
+    // select 74HC4051 channel 4 (of 0 to 7)
+    threeBitWrite(1,0,0);
   
-  // select 74HC4051 channel 4 (of 0 to 7)
-  threeBitWrite(1,0,0);
-
-  sendMIDIData(detune, &respdetune, &detuneValue, &detuneValueLag, 1); //potMux1
-  sendMIDIData(vcfOWFM, &respvcfOWFM, &vcfOWFMValue, &vcfOWFMValueLag, 1); //potMux2
-  sendMIDIData(HPF, &respHPF, &HPFValue, &HPFValueLag, 1); //potMux3    
-
-   // select 74HC4051 channel 5 (of 0 to 7)
-  threeBitWrite(1,0,1);
-
-  sendMIDIData(solPort, &respsolPort, &solPortValue, &solPortValueLag, 1); //potMux1
-  sendMIDIData(vcfKeyFollow, &respvcfKeyFollow, &vcfKeyFollowValue, &vcfKeyFollowValueLag, 1); //potMux2
-  sendMIDIData(vcfCutoff, &respvcfCutoff, &vcfCutoffValue, &vcfCutoffValueLag, 1); //potMux3
+    sendMIDIData(detune, &respdetune, &detuneValue, &detuneValueLag, 1); //potMux1
+    sendMIDIData(vcfOWFM, &respvcfOWFM, &vcfOWFMValue, &vcfOWFMValueLag, 1); //potMux2
+    sendMIDIData(HPF, &respHPF, &HPFValue, &HPFValueLag, 1); //potMux3    
   
-  // select 74HC4051 channel 6 (of 0 to 7)
-  threeBitWrite(1,1,0);
-
-  sendMIDIData(LFOfreq, &respLFOfreq, &LFOfreqValue, &LFOfreqValueLag, 1); //potMux1
-  sendMIDIData(vcfVelo, &respvcfVelo, &vcfVeloValue, &vcfVeloValueLag, 1); //potMux2
-  sendMIDIData(vcfEGDepth, &respvcfEGDepth, &vcfEGDepthValue, &vcfEGDepthValueLag, 1); //potMux3
-
-  // select 74HC4051 channel 7 (of 0 to 7)
-  threeBitWrite(1,1,1);
-
-  sendMIDIData(LFOdepth, &respLFOdepth, &LFOdepthValue, &LFOdepthValueLag, 1); //potMux1
-  sendMIDIData(wheelVCFamount, &respwheelVCFamount, &wheelVCFamountValue, &wheelVCFamountValueLag, 1); //potMux2
-  sendMIDIData(vcfRes, &respvcfRes, &vcfResValue, &vcfResValueLag, 1); //potMux3
-
-  //sendMIDIData(EGARelease, &respEGARelease, &EGAReleaseValue, &EGAReleaseValueLag, 1);
-  //sendMIDIData(EGASustain, &respEGASustain, &EGASustainValue, &EGASustainValueLag, 1);
-  //sendMIDIData(Chorus, &respChorus, &ChorusValue, &ChorusValueLag, 3);
-  //sendMIDIData(EGAAttack, &respEGAAttack, &EGAAttackValue, &EGAAttackValueLag, 1);
-  //sendMIDIData(EGADecay, &respEGADecay, &EGADecayValue, &EGADecayValueLag, 1);
-
-  delay(delayTime);
+     // select 74HC4051 channel 5 (of 0 to 7)
+    threeBitWrite(1,0,1);
+  
+    sendMIDIData(solPort, &respsolPort, &solPortValue, &solPortValueLag, 1); //potMux1
+    sendMIDIData(vcfKeyFollow, &respvcfKeyFollow, &vcfKeyFollowValue, &vcfKeyFollowValueLag, 1); //potMux2
+    sendMIDIData(vcfCutoff, &respvcfCutoff, &vcfCutoffValue, &vcfCutoffValueLag, 1); //potMux3
+    
+    // select 74HC4051 channel 6 (of 0 to 7)
+    threeBitWrite(1,1,0);
+  
+    sendMIDIData(LFOfreq, &respLFOfreq, &LFOfreqValue, &LFOfreqValueLag, 1); //potMux1
+    sendMIDIData(vcfVelo, &respvcfVelo, &vcfVeloValue, &vcfVeloValueLag, 1); //potMux2
+    sendMIDIData(vcfEGDepth, &respvcfEGDepth, &vcfEGDepthValue, &vcfEGDepthValueLag, 1); //potMux3
+  
+    // select 74HC4051 channel 7 (of 0 to 7)
+    threeBitWrite(1,1,1);
+  
+    sendMIDIData(LFOdepth, &respLFOdepth, &LFOdepthValue, &LFOdepthValueLag, 1); //potMux1
+    sendMIDIData(wheelVCFamount, &respwheelVCFamount, &wheelVCFamountValue, &wheelVCFamountValueLag, 1); //potMux2
+    sendMIDIData(vcfRes, &respvcfRes, &vcfResValue, &vcfResValueLag, 1); //potMux3
+  
+    //sendMIDIData(EGARelease, &respEGARelease, &EGAReleaseValue, &EGAReleaseValueLag, 1);
+    //sendMIDIData(EGASustain, &respEGASustain, &EGASustainValue, &EGASustainValueLag, 1);
+    //sendMIDIData(Chorus, &respChorus, &ChorusValue, &ChorusValueLag, 3);
+    //sendMIDIData(EGAAttack, &respEGAAttack, &EGAAttackValue, &EGAAttackValueLag, 1);
+    //sendMIDIData(EGADecay, &respEGADecay, &EGADecayValue, &EGADecayValueLag, 1);
+  }
 }
-
 void threeBitWrite(byte bit1, byte bit2, byte bit3) {
   digitalWrite(addressSelect2, bit1);
   digitalWrite(addressSelect1, bit2);
