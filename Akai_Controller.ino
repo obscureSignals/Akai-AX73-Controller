@@ -1,34 +1,36 @@
 #include <ResponsiveAnalogRead.h>
 #include <MIDI.h>
 
-int midiChannel = 8;
+int midiChannel = 8; //Channel 8 is factory setting on AX-73
 
 //Time between control value updates sent to device.
-//Longer = fewer updates when knob is turned fast because position has changed by more steps between updates, so parameter on synth actually changes faster
-//Shorter = more updates when knob is turned fast because position has changed by fewer steps between updates, so parameter on synth actually changes slower
+//Longer = fewer updates sent to synth when knob is turned fast because position has changed by more steps between updates,
+//so parameter on synth actually changes faster b/c synth is processing fewer requests
+//Shorter = more updates when knob is turned fast because position has changed by fewer steps between updates, 
+//so parameter on synth actually changes slower, b/c synth is processing more updates
 int DELAY_TIME = 25; //millisceonds
 unsigned long delayStart = 0; // the time the delay started
 
-int noiseCount = 0; //for counting how long the noise control has remained unchanged 
+int noiseCount = 0; //for counting how long the noise control has remained unchanged
 
-int addressSelect0 = 14;
-int addressSelect1 = 15;
-int addressSelect2 = 16;
+int addressSelect0 = 14; //pin for mux address 0
+int addressSelect1 = 15; //pin for mux address 1
+int addressSelect2 = 16; //pin for mux address 2
 
-//Inputs from mux chips
+//inputs pins for signals from mux chips
 int slideMux = 17;
 int switchMux = 18;
 int potMux1 = 19;
 int potMux2 = 20;
 int potMux3 = 21;
 
-//Initialize "Value" variable for each parameter - These will be current 7-bit value for each parameter
+//Initialize "Value" variable for each parameter - These will be current, 7-bit value for each parameter
 int vcoOctValue;
-int vcoWaveFormValue; 
+int vcoWaveFormValue;
 int vcoPulseWidthValue;
 int pwmsValue;
 int vcoEGDepthValue;
-//int noiseValue; 
+//int noiseValue;
 //int samplerValue;
 int balanceValue;
 
@@ -72,9 +74,9 @@ int sustValue;
 
 
 //Initialize "ValueLag" variable for each paramete
-//These will be previous 7-bit value for each parameter used to determine if value has changed
+//These will be previous 7-bit value for each parameter used to determine if control position has changed
 int vcoOctValueLag;
-int vcoWaveFormValueLag; 
+int vcoWaveFormValueLag;
 int vcoPulseWidthValueLag;
 int pwmsValueLag;
 int vcoEGDepthValueLag;
@@ -200,11 +202,21 @@ ResponsiveAnalogRead respwheelVCFamount(potMux2, true); //Mux Address = 7
 ResponsiveAnalogRead respHPF(potMux3, true); //Mux Address = 4
 ResponsiveAnalogRead respvcfEGDepth(potMux3, true); //Mux Address = 6
 
-ResponsiveAnalogRead respEGARelease(slideMux, true);
-ResponsiveAnalogRead respEGASustain(slideMux, true);
-ResponsiveAnalogRead respEGADecay(slideMux, true);
-ResponsiveAnalogRead respEGAAttack(slideMux, true);
-ResponsiveAnalogRead respChorus(slideMux, true);
+//Sliders
+ResponsiveAnalogRead respEGAAttack(slideMux, true); //Mux Address = 0
+ResponsiveAnalogRead respEGADecay(slideMux, true); //Mux Address = 1
+ResponsiveAnalogRead respEGASustain(slideMux, true); //Mux Address = 2
+ResponsiveAnalogRead respEGARelease(slideMux, true); //Mux Address = 3
+ResponsiveAnalogRead respEGOAttack(slideMux, true); //Mux Address = 4
+ResponsiveAnalogRead respEGODecay(slideMux, true); //Mux Address = 5
+ResponsiveAnalogRead respEGOSustain(slideMux, true); //Mux Address = 6
+ResponsiveAnalogRead respEGORelease(slideMux, true); //Mux Address = 7
+
+//Gobal/Switches
+ResponsiveAnalogRead respwheelPitchBnd(switchMux, true); //Mux Address = 0
+ResponsiveAnalogRead respChorus(switchMux, true); //Mux Address = 1
+ResponsiveAnalogRead respvoiceAssign(switchMux, true); //Mux Address = 2
+ResponsiveAnalogRead respvcfEGSel(switchMux, true); //Mux Address = 3
 
 void OnNoteOn(byte channel, byte note, byte velocity) {
   MIDI.sendNoteOn(note, velocity, channel);
@@ -242,82 +254,90 @@ void loop() {
   if ((millis() - delayStart) >= DELAY_TIME) { // only check control positions and send midi cc every DELAY_TIME
     delayStart += DELAY_TIME; // this prevents drift in the delays
 
-    // select 74HC4051 channel 0 (of 0 to 7)
-    threeBitWrite(0,0,0);
-  
+    // select 74HCT4051 channel 0 (of 0 to 7)
+    threeBitWrite(0, 0, 0);
+
     sendMIDIData(vcoPulseWidth, &respvcoPulseWidth, &vcoPulseWidthValue, &vcoPulseWidthValueLag, 1); //potMux1
     sendMIDIData(LFOdelay, &respLFOdelay, &LFOdelayValue, &LFOdelayValueLag, 1); //potMux2
     sendMIDIData(vcoOct, &respvcoOct, &vcoOctValue, &vcoOctValueLag, 4); //potMux3
-    
-    // select 74HC4051 channel 1 (of 0 to 7)
-    threeBitWrite(0,0,1);
-    
+    sendMIDIData(EGAAttack, &respEGAAttack, &EGAAttackValue, &EGAAttackValueLag, 1); //slideMux
+    sendMIDIData(wheelPitchBnd, &respwheelPitchBnd, &wheelPitchBndValue, &wheelPitchBndValueLag, 13); //switchMux
+    //Serial.println (respwheelPitchBnd.getValue()>>3);
+    Serial.println (wheelPitchBndValue);
+
+    // select 74HCT4051 channel 1 (of 0 to 7)
+    threeBitWrite(0, 0, 1);
+
     sendMIDIData(pwms, &resppwms, &pwmsValue, &pwmsValueLag, 1); //potMux1
     sendMIDIData(wheelLFOdepth, &respwheelLFOdepth, &wheelLFOdepthValue, &wheelLFOdepthValueLag, 1); //potMux2
     sendMIDIData(vcoWaveForm, &respvcoWaveForm, &vcoWaveFormValue, &vcoWaveFormValueLag, 4); //potMux3
-    
-    // select 74HC4051 channel 2 (of 0 to 7)
-    threeBitWrite(0,1,0);
-  
+    sendMIDIData(EGADecay, &respEGADecay, &EGADecayValue, &EGADecayValueLag, 1); //slideMux
+    //sendMIDIData(Chorus, &respChorus, &ChorusValue, &ChorusValueLag, 3); //switchMux
+
+    // select 74HCT4051 channel 2 (of 0 to 7)
+    threeBitWrite(0, 1, 0);
+
     sendMIDIData(vcoEGDepth, &respvcoEGDepth, &vcoEGDepthValue, &vcoEGDepthValueLag, 1); //potMux1
     sendMIDIData(VCALevel, &respVCALevel, &VCALevelValue, &VCALevelValueLag, 1); //potMux2
-    sendMIDIData(LFOdestination, &respLFOdestination, &LFOdestinationValue, &LFOdestinationValueLag, 4); //potMux3  
-  
-    // select 74HC4051 channel 3 (of 0 to 7)
-    threeBitWrite(0,1,1);
-  
+    sendMIDIData(LFOdestination, &respLFOdestination, &LFOdestinationValue, &LFOdestinationValueLag, 4); //potMux3
+    sendMIDIData(EGASustain, &respEGASustain, &EGASustainValue, &EGASustainValueLag, 1); //slideMux
+    //sendMIDIData(voiceAssign, &respvoiceAssign, &voiceAssignValue, &voiceAssignValueLag, 3); //switchMux
+
+    // select 74HCT4051 channel 3 (of 0 to 7)
+    threeBitWrite(0, 1, 1);
+
     // noise control has special requirements
     respbalance.update(); // update responsive parameter from mux output
-    balanceValue = respbalance.getValue()>>3; // bitshift responcive parameter from 10 bits to 7 bits and assign to paramValue variable
+    balanceValue = respbalance.getValue() >> 3; // bitshift responcive parameter from 10 bits to 7 bits and assign to paramValue variable
     if (balanceValue != balanceValueLag) { // check value against lag value
       balanceValueLag = balanceValue; // set new lag value
-      MIDI.sendControlChange(balance, balanceValue, midiChannel); // send midi cc data
-      if (noiseCount > 200){ // if, prior to this event, the noise control had not been changed for more than 200 cycles
+      MIDI.sendControlChange(balance, (127 - balanceValue), midiChannel); // send inverted midi cc data
+      if (noiseCount > 200) { // if, prior to this event, the noise control had not been changed for more than 200 cycles
         MIDI.sendControlChange(noise, 127, midiChannel); // turn noise on
         MIDI.sendControlChange(sampler, 0, midiChannel); // turn smapler off
         noiseCount = 0;
-        }
-     }
-     else {
-       noiseCount++;
-     }
-    
+      }
+    }
+    else {
+      noiseCount++;
+    }
+
     sendMIDIData(VCAVelo, &respVCAVelo, &VCAVeloValue, &VCAVeloValueLag, 1); //potMux2
-    sendMIDIData(LFOwaveform, &respLFOwaveform, &LFOwaveformValue, &LFOwaveformValueLag, 5); //potMux3  
-    
-    // select 74HC4051 channel 4 (of 0 to 7)
-    threeBitWrite(1,0,0);
-  
+    sendMIDIData(LFOwaveform, &respLFOwaveform, &LFOwaveformValue, &LFOwaveformValueLag, 5); //potMux3
+    sendMIDIData(EGARelease, &respEGARelease, &EGAReleaseValue, &EGAReleaseValueLag, 1); //slideMux
+    sendMIDIData(vcfEGSel, &respvcfEGSel, &vcfEGSelValue, &vcfEGSelValueLag, 2); //switchMux
+
+    // select 74HCT4051 channel 4 (of 0 to 7)
+    threeBitWrite(1, 0, 0);
+
     sendMIDIData(detune, &respdetune, &detuneValue, &detuneValueLag, 1); //potMux1
     sendMIDIData(vcfOWFM, &respvcfOWFM, &vcfOWFMValue, &vcfOWFMValueLag, 1); //potMux2
-    sendMIDIData(HPF, &respHPF, &HPFValue, &HPFValueLag, 1); //potMux3    
-  
-     // select 74HC4051 channel 5 (of 0 to 7)
-    threeBitWrite(1,0,1);
-  
+    sendMIDIData(HPF, &respHPF, &HPFValue, &HPFValueLag, 1); //potMux3
+    sendMIDIData(EGOAttack, &respEGOAttack, &EGOAttackValue, &EGOAttackValueLag, 1); //slideMux
+
+    // select 74HCT4051 channel 5 (of 0 to 7)
+    threeBitWrite(1, 0, 1);
+
     sendMIDIData(solPort, &respsolPort, &solPortValue, &solPortValueLag, 1); //potMux1
     sendMIDIData(vcfKeyFollow, &respvcfKeyFollow, &vcfKeyFollowValue, &vcfKeyFollowValueLag, 1); //potMux2
     sendMIDIData(vcfCutoff, &respvcfCutoff, &vcfCutoffValue, &vcfCutoffValueLag, 1); //potMux3
-    
-    // select 74HC4051 channel 6 (of 0 to 7)
-    threeBitWrite(1,1,0);
-  
+    sendMIDIData(EGODecay, &respEGODecay, &EGODecayValue, &EGODecayValueLag, 1); //slideMux
+
+    // select 74HCT4051 channel 6 (of 0 to 7)
+    threeBitWrite(1, 1, 0);
+
     sendMIDIData(LFOfreq, &respLFOfreq, &LFOfreqValue, &LFOfreqValueLag, 1); //potMux1
     sendMIDIData(vcfVelo, &respvcfVelo, &vcfVeloValue, &vcfVeloValueLag, 1); //potMux2
     sendMIDIData(vcfEGDepth, &respvcfEGDepth, &vcfEGDepthValue, &vcfEGDepthValueLag, 1); //potMux3
-  
-    // select 74HC4051 channel 7 (of 0 to 7)
-    threeBitWrite(1,1,1);
-  
+    sendMIDIData(EGOSustain, &respEGOSustain, &EGOSustainValue, &EGOSustainValueLag, 1); //slideMux
+
+    // select 74HCT4051 channel 7 (of 0 to 7)
+    threeBitWrite(1, 1, 1);
+
     sendMIDIData(LFOdepth, &respLFOdepth, &LFOdepthValue, &LFOdepthValueLag, 1); //potMux1
     sendMIDIData(wheelVCFamount, &respwheelVCFamount, &wheelVCFamountValue, &wheelVCFamountValueLag, 1); //potMux2
     sendMIDIData(vcfRes, &respvcfRes, &vcfResValue, &vcfResValueLag, 1); //potMux3
-  
-    //sendMIDIData(EGARelease, &respEGARelease, &EGAReleaseValue, &EGAReleaseValueLag, 1);
-    //sendMIDIData(EGASustain, &respEGASustain, &EGASustainValue, &EGASustainValueLag, 1);
-    //sendMIDIData(Chorus, &respChorus, &ChorusValue, &ChorusValueLag, 3);
-    //sendMIDIData(EGAAttack, &respEGAAttack, &EGAAttackValue, &EGAAttackValueLag, 1);
-    //sendMIDIData(EGADecay, &respEGADecay, &EGADecayValue, &EGADecayValueLag, 1);
+    sendMIDIData(EGORelease, &respEGORelease, &EGOReleaseValue, &EGOReleaseValueLag, 1); //slideMux
   }
 }
 void threeBitWrite(byte bit1, byte bit2, byte bit3) {
@@ -331,12 +351,12 @@ void threeBitWrite(byte bit1, byte bit2, byte bit3) {
 
 void sendMIDIData(int param, ResponsiveAnalogRead *respParam, int *paramValue, int *paramValueLag, int divs) {
   respParam->update(); // update responsive parameter from mux output
-  *paramValue = respParam->getValue()>>3; // bitshift responcive parameter from 10 bits to 7 bits and assign to paramValue variable
-  if (divs > 1) { // check if control is switch 
-    int incsize = (128/divs); // determine size of switch incrments
-    for (int i=0; i<(divs); i++){ // see which increment the switch is set to
-      if ((*paramValue >= (i * incsize)) && (*paramValue <= ((i+1) * incsize))) {
-        *paramValue = ((i * incsize) + (incsize/2)); // set paramValue to value in the middle of the increment 
+  *paramValue = respParam->getValue() >> 3; // bitshift responcive parameter from 10 bits to 7 bits and assign to paramValue variable
+  if (divs > 1) { // check if control is switch
+    int incsize = (127 / (divs)); // determine size of switch incrments
+    for (int i = 0; i < (divs); i++) { // see which increment the switch is set to
+      if ((*paramValue >= (i * incsize)) && (*paramValue < ((i + 1) * incsize))) {
+        *paramValue = ((i * incsize) + (incsize / 2)); // set paramValue to value in the middle of the increment
       }
     }
   }
