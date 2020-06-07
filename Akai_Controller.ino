@@ -1,13 +1,13 @@
 #include <ResponsiveAnalogRead.h>
 #include <MIDI.h>
 
-int midiChannel = 8; //Channel 8 is factory setting on AX-73
+int midiChannel = 8; //Channel 8 is factory setting on AX73
 
 //Time between control value updates sent to device.
 //Longer = fewer updates sent to synth when knob is turned fast because position has changed by more steps between updates,
-//so parameter on synth actually changes faster b/c synth is processing fewer requests
+//so parameter on synth actually changes faster because synth is processing fewer requests
 //Shorter = more updates when knob is turned fast because position has changed by fewer steps between updates, 
-//so parameter on synth actually changes slower, b/c synth is processing more updates
+//so parameter on synth actually changes slower, because synth is processing more updates
 int DELAY_TIME = 25; //millisceonds
 unsigned long delayStart = 0; // the time the delay started
 
@@ -24,7 +24,7 @@ int potMux1 = 19;
 int potMux2 = 20;
 int potMux3 = 21;
 
-//Initialize "Value" variable for each parameter - These will be current, 7-bit value for each parameter
+// Initialize "Value" variable for each parameter - These will be the current, 7-bit values for each parameter.
 int vcoOctValue;
 int vcoWaveFormValue;
 int vcoPulseWidthValue;
@@ -73,8 +73,8 @@ int midiSplitValue;
 int sustValue;
 
 
-//Initialize "ValueLag" variable for each paramete
-//These will be previous 7-bit value for each parameter used to determine if control position has changed
+// Initialize "ValueLag" variable for each paramete
+// These will be previous 7-bit value for each parameter used to determine if control position has changed
 int vcoOctValueLag;
 int vcoWaveFormValueLag;
 int vcoPulseWidthValueLag;
@@ -122,7 +122,7 @@ int wheelLFOdepthValueLag;
 int midiSplitValueLag;
 int sustValueLag;
 
-//Midi cc #'s
+// Midi cc #'s
 int vcoOct = 14; //0-31: 16', 32-63: 8', 64-95: 4', 96-127: 2'
 int vcoWaveForm = 15; //0-31: Saw, 32-63: Tri, 64-95: Pulse, 96-127 Saw+Tri
 int vcoPulseWidth = 16; //0-127
@@ -218,14 +218,17 @@ ResponsiveAnalogRead respChorus(switchMux, true); //Mux Address = 1
 ResponsiveAnalogRead respvoiceAssign(switchMux, true); //Mux Address = 2
 ResponsiveAnalogRead respvcfEGSel(switchMux, true); //Mux Address = 3
 
-void OnNoteOn(byte channel, byte note, byte velocity) {
+// When note on message is received from USB, send same message out to synth.
+void OnNoteOn(byte channel, byte note, byte velocity) { 
   MIDI.sendNoteOn(note, velocity, channel);
 }
 
+// When note off message is received from USB, send same message out to synth.
 void OnNoteOff(byte channel, byte note, byte velocity) {
   MIDI.sendNoteOff(note, velocity, channel);
 }
 
+// When pitch change message is received from USB, send same message out to synth.
 void OnPitchChange(byte channel, int pitch) {
   MIDI.sendPitchBend(pitch, channel);
 }
@@ -254,42 +257,42 @@ void loop() {
   if ((millis() - delayStart) >= DELAY_TIME) { // only check control positions and send midi cc every DELAY_TIME
     delayStart += DELAY_TIME; // this prevents drift in the delays
 
-    // select 74HCT4051 channel 0 (of 0 to 7)
-    threeBitWrite(0, 0, 0);
+    threeBitWrite(0, 0, 0); // select 74HCT4051 channel 0 (of 0 to 7)
 
-    sendMIDIData(vcoPulseWidth, &respvcoPulseWidth, &vcoPulseWidthValue, &vcoPulseWidthValueLag, 1); //potMux1
-    sendMIDIData(LFOdelay, &respLFOdelay, &LFOdelayValue, &LFOdelayValueLag, 1); //potMux2
-    sendMIDIData(vcoOct, &respvcoOct, &vcoOctValue, &vcoOctValueLag, 4); //potMux3
-    sendMIDIData(EGAAttack, &respEGAAttack, &EGAAttackValue, &EGAAttackValueLag, 1); //slideMux
-    sendMIDIData(wheelPitchBnd, &respwheelPitchBnd, &wheelPitchBndValue, &wheelPitchBndValueLag, 13); //switchMux
+    sendMIDIData(vcoPulseWidth, &respvcoPulseWidth, &vcoPulseWidthValue, &vcoPulseWidthValueLag, 1, 0); //potMux1
+    sendMIDIData(LFOdelay, &respLFOdelay, &LFOdelayValue, &LFOdelayValueLag, 1, 0); //potMux2
+    sendMIDIData(vcoOct, &respvcoOct, &vcoOctValue, &vcoOctValueLag, 4, 0); //potMux3
+    sendMIDIData(EGAAttack, &respEGAAttack, &EGAAttackValue, &EGAAttackValueLag, 1, 0); //slideMux
+    sendMIDIData(wheelPitchBnd, &respwheelPitchBnd, &wheelPitchBndValue, &wheelPitchBndValueLag, 13, 0); //switchMux
  
-    // select 74HCT4051 channel 1 (of 0 to 7)
-    threeBitWrite(0, 0, 1);
+    threeBitWrite(0, 0, 1); // select 74HCT4051 channel 1 (of 0 to 7)
 
-    sendMIDIData(pwms, &resppwms, &pwmsValue, &pwmsValueLag, 1); //potMux1
-    sendMIDIData(wheelLFOdepth, &respwheelLFOdepth, &wheelLFOdepthValue, &wheelLFOdepthValueLag, 1); //potMux2
-    sendMIDIData(vcoWaveForm, &respvcoWaveForm, &vcoWaveFormValue, &vcoWaveFormValueLag, 4); //potMux3
-    sendMIDIData(EGADecay, &respEGADecay, &EGADecayValue, &EGADecayValueLag, 1); //slideMux
-    //sendMIDIData(Chorus, &respChorus, &ChorusValue, &ChorusValueLag, 3); //switchMux
+    sendMIDIData(pwms, &resppwms, &pwmsValue, &pwmsValueLag, 1, 0); //potMux1
+    sendMIDIData(wheelLFOdepth, &respwheelLFOdepth, &wheelLFOdepthValue, &wheelLFOdepthValueLag, 1, 0); //potMux2
+    sendMIDIData(vcoWaveForm, &respvcoWaveForm, &vcoWaveFormValue, &vcoWaveFormValueLag, 4, 0); //potMux3
+    sendMIDIData(EGADecay, &respEGADecay, &EGADecayValue, &EGADecayValueLag, 1, 0); //slideMux
+    //sendMIDIData(Chorus, &respChorus, &ChorusValue, &ChorusValueLag, 3, 0); //switchMux
 
-    // select 74HCT4051 channel 2 (of 0 to 7)
-    threeBitWrite(0, 1, 0);
+    threeBitWrite(0, 1, 0); // select 74HCT4051 channel 2 (of 0 to 7)
 
-    sendMIDIData(vcoEGDepth, &respvcoEGDepth, &vcoEGDepthValue, &vcoEGDepthValueLag, 1); //potMux1
-    sendMIDIData(VCALevel, &respVCALevel, &VCALevelValue, &VCALevelValueLag, 1); //potMux2
-    sendMIDIData(LFOdestination, &respLFOdestination, &LFOdestinationValue, &LFOdestinationValueLag, 4); //potMux3
-    sendMIDIData(EGASustain, &respEGASustain, &EGASustainValue, &EGASustainValueLag, 1); //slideMux
-    //sendMIDIData(voiceAssign, &respvoiceAssign, &voiceAssignValue, &voiceAssignValueLag, 3); //switchMux
-
-    // select 74HCT4051 channel 3 (of 0 to 7)
-    threeBitWrite(0, 1, 1);
+    sendMIDIData(vcoEGDepth, &respvcoEGDepth, &vcoEGDepthValue, &vcoEGDepthValueLag, 1, 0); //potMux1
+    sendMIDIData(VCALevel, &respVCALevel, &VCALevelValue, &VCALevelValueLag, 1, 0); //potMux2
+    sendMIDIData(LFOdestination, &respLFOdestination, &LFOdestinationValue, &LFOdestinationValueLag, 4, 0); //potMux3
+    sendMIDIData(EGASustain, &respEGASustain, &EGASustainValue, &EGASustainValueLag, 1, 0); //slideMux
+    //sendMIDIData(voiceAssign, &respvoiceAssign, &voiceAssignValue, &voiceAssignValueLag, 3, 0); //switchMux
+    
+    threeBitWrite(0, 1, 1); // select 74HCT4051 channel 3 (of 0 to 7)
 
     // noise control has special requirements
+    // The AX73 was originally set up to interface with Akai's S-612, S-900 and S-950 samplers.
+    // In order to accomplish this, there is an "a-b" ballance control. Source a is the synth and source b is a sampler and/or noise.
+    // Since most users do not own the sampler, I have configured the "noise" control to send two additonal messages to the synth: "turn noise on" and "turn sampler off".
+    // This way, whenever the noise control is adjusted, you are sure to mix in noise and not a sampler that is not connected.
     respbalance.update(); // update responsive parameter from mux output
     balanceValue = respbalance.getValue() >> 3; // bitshift responcive parameter from 10 bits to 7 bits and assign to paramValue variable
     if (balanceValue != balanceValueLag) { // check value against lag value
       balanceValueLag = balanceValue; // set new lag value
-      MIDI.sendControlChange(balance, (127 - balanceValue), midiChannel); // send inverted midi cc data
+      MIDI.sendControlChange(balance, (127 - balanceValue), midiChannel); // send inverted midi cc data so on control synth is counterclockwise and noise is clockwise
       if (noiseCount > 200) { // if, prior to this event, the noise control had not been changed for more than 200 cycles
         MIDI.sendControlChange(noise, 127, midiChannel); // turn noise on
         MIDI.sendControlChange(sampler, 0, midiChannel); // turn smapler off
@@ -300,44 +303,43 @@ void loop() {
       noiseCount++;
     }
 
-    sendMIDIData(VCAVelo, &respVCAVelo, &VCAVeloValue, &VCAVeloValueLag, 1); //potMux2
-    sendMIDIData(LFOwaveform, &respLFOwaveform, &LFOwaveformValue, &LFOwaveformValueLag, 5); //potMux3
-    sendMIDIData(EGARelease, &respEGARelease, &EGAReleaseValue, &EGAReleaseValueLag, 1); //slideMux
-    sendMIDIData(vcfEGSel, &respvcfEGSel, &vcfEGSelValue, &vcfEGSelValueLag, 2); //switchMux
+    sendMIDIData(VCAVelo, &respVCAVelo, &VCAVeloValue, &VCAVeloValueLag, 1, 0); //potMux2
+    sendMIDIData(LFOwaveform, &respLFOwaveform, &LFOwaveformValue, &LFOwaveformValueLag, 5, 0); //potMux3
+    sendMIDIData(EGARelease, &respEGARelease, &EGAReleaseValue, &EGAReleaseValueLag, 1, 0); //slideMux
+    sendMIDIData(vcfEGSel, &respvcfEGSel, &vcfEGSelValue, &vcfEGSelValueLag, 2, 1); //switchMux
 
-    // select 74HCT4051 channel 4 (of 0 to 7)
-    threeBitWrite(1, 0, 0);
+    threeBitWrite(1, 0, 0); // select 74HCT4051 channel 4 (of 0 to 7)
 
-    sendMIDIData(detune, &respdetune, &detuneValue, &detuneValueLag, 1); //potMux1
-    sendMIDIData(vcfOWFM, &respvcfOWFM, &vcfOWFMValue, &vcfOWFMValueLag, 1); //potMux2
-    sendMIDIData(HPF, &respHPF, &HPFValue, &HPFValueLag, 1); //potMux3
-    sendMIDIData(EGOAttack, &respEGOAttack, &EGOAttackValue, &EGOAttackValueLag, 1); //slideMux
+    sendMIDIData(detune, &respdetune, &detuneValue, &detuneValueLag, 1, 0); //potMux1
+    sendMIDIData(vcfOWFM, &respvcfOWFM, &vcfOWFMValue, &vcfOWFMValueLag, 1, 0); //potMux2
+    sendMIDIData(HPF, &respHPF, &HPFValue, &HPFValueLag, 1, 0); //potMux3
+    sendMIDIData(EGOAttack, &respEGOAttack, &EGOAttackValue, &EGOAttackValueLag, 1, 0); //slideMux
 
-    // select 74HCT4051 channel 5 (of 0 to 7)
-    threeBitWrite(1, 0, 1);
+    threeBitWrite(1, 0, 1); // select 74HCT4051 channel 5 (of 0 to 7)
 
-    sendMIDIData(solPort, &respsolPort, &solPortValue, &solPortValueLag, 1); //potMux1
-    sendMIDIData(vcfKeyFollow, &respvcfKeyFollow, &vcfKeyFollowValue, &vcfKeyFollowValueLag, 1); //potMux2
-    sendMIDIData(vcfCutoff, &respvcfCutoff, &vcfCutoffValue, &vcfCutoffValueLag, 1); //potMux3
-    sendMIDIData(EGODecay, &respEGODecay, &EGODecayValue, &EGODecayValueLag, 1); //slideMux
+    sendMIDIData(solPort, &respsolPort, &solPortValue, &solPortValueLag, 1, 0); //potMux1
+    sendMIDIData(vcfKeyFollow, &respvcfKeyFollow, &vcfKeyFollowValue, &vcfKeyFollowValueLag, 1, 0); //potMux2
+    sendMIDIData(vcfCutoff, &respvcfCutoff, &vcfCutoffValue, &vcfCutoffValueLag, 1, 0); //potMux3
+    sendMIDIData(EGODecay, &respEGODecay, &EGODecayValue, &EGODecayValueLag, 1, 0); //slideMux
 
-    // select 74HCT4051 channel 6 (of 0 to 7)
-    threeBitWrite(1, 1, 0);
+    threeBitWrite(1, 1, 0); // select 74HCT4051 channel 6 (of 0 to 7)
 
-    sendMIDIData(LFOfreq, &respLFOfreq, &LFOfreqValue, &LFOfreqValueLag, 1); //potMux1
-    sendMIDIData(vcfVelo, &respvcfVelo, &vcfVeloValue, &vcfVeloValueLag, 1); //potMux2
-    sendMIDIData(vcfEGDepth, &respvcfEGDepth, &vcfEGDepthValue, &vcfEGDepthValueLag, 1); //potMux3
-    sendMIDIData(EGOSustain, &respEGOSustain, &EGOSustainValue, &EGOSustainValueLag, 1); //slideMux
+    sendMIDIData(LFOfreq, &respLFOfreq, &LFOfreqValue, &LFOfreqValueLag, 1, 0); //potMux1
+    sendMIDIData(vcfVelo, &respvcfVelo, &vcfVeloValue, &vcfVeloValueLag, 1, 0); //potMux2
+    sendMIDIData(vcfEGDepth, &respvcfEGDepth, &vcfEGDepthValue, &vcfEGDepthValueLag, 1, 0); //potMux3
+    sendMIDIData(EGOSustain, &respEGOSustain, &EGOSustainValue, &EGOSustainValueLag, 1, 0); //slideMux
 
-    // select 74HCT4051 channel 7 (of 0 to 7)
-    threeBitWrite(1, 1, 1);
+    
+    threeBitWrite(1, 1, 1); // select 74HCT4051 channel 7 (of 0 to 7)
 
-    sendMIDIData(LFOdepth, &respLFOdepth, &LFOdepthValue, &LFOdepthValueLag, 1); //potMux1
-    sendMIDIData(wheelVCFamount, &respwheelVCFamount, &wheelVCFamountValue, &wheelVCFamountValueLag, 1); //potMux2
-    sendMIDIData(vcfRes, &respvcfRes, &vcfResValue, &vcfResValueLag, 1); //potMux3
-    sendMIDIData(EGORelease, &respEGORelease, &EGOReleaseValue, &EGOReleaseValueLag, 1); //slideMux
+    sendMIDIData(LFOdepth, &respLFOdepth, &LFOdepthValue, &LFOdepthValueLag, 1, 0); //potMux1
+    sendMIDIData(wheelVCFamount, &respwheelVCFamount, &wheelVCFamountValue, &wheelVCFamountValueLag, 1, 0); //potMux2
+    sendMIDIData(vcfRes, &respvcfRes, &vcfResValue, &vcfResValueLag, 1, 0); //potMux3
+    sendMIDIData(EGORelease, &respEGORelease, &EGOReleaseValue, &EGOReleaseValueLag, 1, 0); //slideMux
   }
 }
+
+// write address to output pins connected to Mux
 void threeBitWrite(byte bit1, byte bit2, byte bit3) {
   digitalWrite(addressSelect2, bit1);
   digitalWrite(addressSelect1, bit2);
@@ -348,7 +350,10 @@ void threeBitWrite(byte bit1, byte bit2, byte bit3) {
 }
 
 
-void sendMIDIData(int param, ResponsiveAnalogRead *respParam, int *paramValue, int *paramValueLag, float divs) {
+// Check to see if control positon has changed. If yes,send updated midi cc value.
+// divs is the number of divisions oif control is to be treated as a switch. For a four-position switch, divs = 4. For a continuous control, divs = 0
+// invert is to invert the control (127 = 0 aand 0 = 127). int = 1 for invert. int = 0 for non-inverted.
+void sendMIDIData(int param, ResponsiveAnalogRead *respParam, int *paramValue, int *paramValueLag, float divs, int invert) {
   respParam->update(); // update responsive parameter from mux output
   *paramValue = respParam->getValue() >> 3; // bitshift responcive parameter from 10 bits to 7 bits and assign to paramValue variable
   if (divs > 1) { // check if control is switch
@@ -358,6 +363,9 @@ void sendMIDIData(int param, ResponsiveAnalogRead *respParam, int *paramValue, i
         *paramValue = (i * incsize); // set paramValue to value in the middle of the increment
       }
     }
+  }
+  if (invert == 1) { // if invert is on
+    *paramValue = (127 - *paramValue); // invert paramValue
   }
   if (*paramValue != *paramValueLag) { // check value against lag value
     *paramValueLag = *paramValue; // set new lag value
