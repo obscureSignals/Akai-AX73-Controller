@@ -262,9 +262,7 @@ void loop() {
     sendMIDIData(vcoOct, &respvcoOct, &vcoOctValue, &vcoOctValueLag, 4); //potMux3
     sendMIDIData(EGAAttack, &respEGAAttack, &EGAAttackValue, &EGAAttackValueLag, 1); //slideMux
     sendMIDIData(wheelPitchBnd, &respwheelPitchBnd, &wheelPitchBndValue, &wheelPitchBndValueLag, 13); //switchMux
-    //Serial.println (respwheelPitchBnd.getValue()>>3);
-    Serial.println (wheelPitchBndValue);
-
+ 
     // select 74HCT4051 channel 1 (of 0 to 7)
     threeBitWrite(0, 0, 1);
 
@@ -349,14 +347,15 @@ void threeBitWrite(byte bit1, byte bit2, byte bit3) {
   delayMicroseconds(50);
 }
 
-void sendMIDIData(int param, ResponsiveAnalogRead *respParam, int *paramValue, int *paramValueLag, int divs) {
+
+void sendMIDIData(int param, ResponsiveAnalogRead *respParam, int *paramValue, int *paramValueLag, float divs) {
   respParam->update(); // update responsive parameter from mux output
   *paramValue = respParam->getValue() >> 3; // bitshift responcive parameter from 10 bits to 7 bits and assign to paramValue variable
   if (divs > 1) { // check if control is switch
-    int incsize = (127 / (divs)); // determine size of switch incrments
+    float incsize = (127 / (divs-1)); // determine size of switch incrments
     for (int i = 0; i < (divs); i++) { // see which increment the switch is set to
-      if ((*paramValue >= (i * incsize)) && (*paramValue < ((i + 1) * incsize))) {
-        *paramValue = ((i * incsize) + (incsize / 2)); // set paramValue to value in the middle of the increment
+      if ((*paramValue >= ((i * incsize) - (incsize / 2))) && (*paramValue < ((i + 1) * incsize)-(incsize / 2))) {
+        *paramValue = (i * incsize); // set paramValue to value in the middle of the increment
       }
     }
   }
