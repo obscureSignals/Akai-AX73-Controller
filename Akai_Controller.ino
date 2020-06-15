@@ -1,5 +1,5 @@
 #include <ResponsiveAnalogRead.h>
-#include <MIDI.h>
+#include <MIDIMod.h>
 
 int midiChannel = 8; //Channel 8 is factory setting on AX73
 
@@ -233,6 +233,11 @@ void OnPitchChange(byte channel, int pitch) {
   MIDI.sendPitchBend(pitch, channel);
 }
 
+// When SysEx message is received from USB, send same message out to synth.
+void OnSystemExclusive(const byte *data, uint16_t length, bool last) {
+  MIDI.sendSysEx (length, data, true); // Do not add in stop and start bytes reggardless of what USB midi message reports with 'last'.
+}
+
 void setup() {
   Serial.begin(9600); //debugging
 
@@ -245,8 +250,11 @@ void setup() {
   usbMIDI.setHandleNoteOff(OnNoteOff);
   usbMIDI.setHandleNoteOn(OnNoteOn);
   usbMIDI.setHandlePitchChange(OnPitchChange);
+  usbMIDI.setHandleSystemExclusive(OnSystemExclusive);
 
   delayStart = millis();
+
+  MIDI.sendTuneRequest(); //tune on startup
 
 }
 
@@ -271,7 +279,7 @@ void loop() {
     sendMIDIData(wheelLFOdepth, &respwheelLFOdepth, &wheelLFOdepthValue, &wheelLFOdepthValueLag, 1, 0); //potMux2
     sendMIDIData(vcoWaveForm, &respvcoWaveForm, &vcoWaveFormValue, &vcoWaveFormValueLag, 4, 0); //potMux3
     sendMIDIData(EGADecay, &respEGADecay, &EGADecayValue, &EGADecayValueLag, 1, 0); //slideMux
-    //sendMIDIData(Chorus, &respChorus, &ChorusValue, &ChorusValueLag, 3, 0); //switchMux
+    sendMIDIData(Chorus, &respChorus, &ChorusValue, &ChorusValueLag, 3, 0); //switchMux
 
     threeBitWrite(0, 1, 0); // select 74HCT4051 channel 2 (of 0 to 7)
 
@@ -279,7 +287,7 @@ void loop() {
     sendMIDIData(VCALevel, &respVCALevel, &VCALevelValue, &VCALevelValueLag, 1, 0); //potMux2
     sendMIDIData(LFOdestination, &respLFOdestination, &LFOdestinationValue, &LFOdestinationValueLag, 4, 0); //potMux3
     sendMIDIData(EGASustain, &respEGASustain, &EGASustainValue, &EGASustainValueLag, 1, 0); //slideMux
-    //sendMIDIData(voiceAssign, &respvoiceAssign, &voiceAssignValue, &voiceAssignValueLag, 3, 0); //switchMux
+    sendMIDIData(voiceAssign, &respvoiceAssign, &voiceAssignValue, &voiceAssignValueLag, 3, 0); //switchMux
     
     threeBitWrite(0, 1, 1); // select 74HCT4051 channel 3 (of 0 to 7)
 
