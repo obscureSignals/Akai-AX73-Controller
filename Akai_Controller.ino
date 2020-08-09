@@ -1,6 +1,10 @@
 #include <ResponsiveAnalogRead.h>
 #include <MIDIMod.h>
 
+//Incoming midi variables
+byte inType;
+int inPitchBend;
+
 int midiChannel = 8; //Channel 8 is factory setting on AX73
 
 //Time between control value updates sent to device.
@@ -238,11 +242,18 @@ void OnSystemExclusive(const byte *data, uint16_t length, bool last) {
   MIDI.sendSysEx (length, data, true); // Do not add in stop and start bytes reggardless of what USB midi message reports with 'last'.
 }
 
+// When control change message is received from USB, send same message out to synth.
+void OnControlChange(byte channel, byte control, byte value) { 
+  MIDI.sendControlChange(control, value, channel);
+}
+
 void setup() {
   Serial.begin(9600); //debugging
 
-  MIDI.begin();
+  MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 
+  MIDI.begin();
+  
   pinMode(addressSelect0, OUTPUT);
   pinMode(addressSelect1, OUTPUT);
   pinMode(addressSelect2, OUTPUT);
@@ -251,6 +262,7 @@ void setup() {
   usbMIDI.setHandleNoteOn(OnNoteOn);
   usbMIDI.setHandlePitchChange(OnPitchChange);
   usbMIDI.setHandleSystemExclusive(OnSystemExclusive);
+  usbMIDI.setHandleControlChange(OnControlChange);   
 
   delayStart = millis();
 
@@ -261,7 +273,29 @@ void setup() {
 void loop() {
 
   usbMIDI.read();
-
+  
+  // Echo incoming MIDI messages out over USB.
+  MIDI.turnThruOff(); // Turn off midi through. Stops notes from AX73 keyboard looping back and playing twice.
+  if (MIDI.read()) {  
+    inType = MIDI.getType();
+    switch (inType) {
+      case midi::NoteOn: 
+        usbMIDI.sendNoteOn (MIDI.getData1(), MIDI.getData2(), MIDI.getChannel());
+        break;
+      case midi::NoteOff:
+        usbMIDI.sendNoteOff (MIDI.getData1(), MIDI.getData2(), MIDI.getChannel()); 
+        break;
+      case midi::ControlChange:
+        usbMIDI.sendControlChange (MIDI.getData1(), MIDI.getData2(), MIDI.getChannel()); 
+        break;
+      case midi::PitchBend: 
+        // The AX73 only sends 7 bit bitch bend data - the first byte of the MIDI message is empty. 
+        // To get the full resolution out of a controller that is sending 14 bit pitchbend data, this code would need to be modified. 
+        inPitchBend = (MIDI.getData2() - 64) << 7; // Conversion from unsigned 7 bit pitch bend value to signed 14 bit value
+        usbMIDI.sendPitchBend (inPitchBend, MIDI.getChannel());
+        break;
+    }
+  }    
   if ((millis() - delayStart) >= DELAY_TIME) { // only check control positions and send midi cc every DELAY_TIME
     delayStart += DELAY_TIME; // this prevents drift in the delays
 
@@ -293,11 +327,11 @@ void loop() {
 
     // noise control has special requirements
     // The AX73 was originally set up to interface with Akai's S-612, S-900 and S-950 samplers.
-    // In order to accomplish this, there is an "a-b" ballance control. Source a is the synth and source b is a sampler and/or noise.
+    // In order to accomplish this, there is an "a-b" ballance control. Source "a" is the VCOs and source "b" is a sampler and/or noise.
     // Since most users do not own the sampler, I have configured the "noise" control to send two additonal messages to the synth: "turn noise on" and "turn sampler off".
     // This way, whenever the noise control is adjusted, you are sure to mix in noise and not a sampler that is not connected.
     respbalance.update(); // update responsive parameter from mux output
-    balanceValue = respbalance.getValue() >> 3; // bitshift responcive parameter from 10 bits to 7 bits and assign to paramValue variable
+    balanceValue = respbalance.getValue() >> 3; // bitshift responsive parameter from 10 bits to 7 bits and assign to paramValue variable
     if (balanceValue != balanceValueLag) { // check value against lag value
       balanceValueLag = balanceValue; // set new lag value
       MIDI.sendControlChange(balance, (127 - balanceValue), midiChannel); // send inverted midi cc data so on control synth is counterclockwise and noise is clockwise
@@ -359,7 +393,7 @@ void threeBitWrite(byte bit1, byte bit2, byte bit3) {
 
 
 // Check to see if control positon has changed. If yes,send updated midi cc value.
-// divs is the number of divisions oif control is to be treated as a switch. For a four-position switch, divs = 4. For a continuous control, divs = 0
+// divs is the number of divisions if control is to be treated as a switch. For a four-position switch, divs = 4. For a continuous control, divs = 0
 // invert is to invert the control (127 = 0 aand 0 = 127). int = 1 for invert. int = 0 for non-inverted.
 void sendMIDIData(int param, ResponsiveAnalogRead *respParam, int *paramValue, int *paramValueLag, float divs, int invert) {
   respParam->update(); // update responsive parameter from mux output
