@@ -1,9 +1,12 @@
+#include <MIDIUSB.h>
 #include <ResponsiveAnalogRead.h>
 #include <MIDIMod.h>
 
 //Incoming midi variables
 byte inType;
 int inPitchBend;
+byte lastByte;
+byte sysExArray[5205];
 
 int midiChannel = 8; //Channel 8 is factory setting on AX73
 
@@ -174,8 +177,6 @@ int wheelLFOdepth = 47; //0-127
 int midiSplit = 48; //0-42: Off, 43-85: Upp, 86-127: Low
 int sust = 64; //0-127
 
-MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
-
 //Row 1
 ResponsiveAnalogRead respvcoOct(potMux3, true); //Mux Address = 0
 ResponsiveAnalogRead respvcoWaveForm(potMux3, true); //Mux Address = 1
@@ -222,6 +223,9 @@ ResponsiveAnalogRead respChorus(switchMux, true); //Mux Address = 1
 ResponsiveAnalogRead respvoiceAssign(switchMux, true); //Mux Address = 2
 ResponsiveAnalogRead respvcfEGSel(switchMux, true); //Mux Address = 3
 
+
+MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
+
 // When note on message is received from USB, send same message out to synth.
 void OnNoteOn(byte channel, byte note, byte velocity) { 
   MIDI.sendNoteOn(note, velocity, channel);
@@ -249,10 +253,11 @@ void OnControlChange(byte channel, byte control, byte value) {
 
 void setup() {
   Serial.begin(9600); //debugging
-
+  Serial1.begin(31250); //MIDI serial
+   
   MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 
-  MIDI.begin();
+  MIDI.begin(MIDI_CHANNEL_OMNI);
   
   pinMode(addressSelect0, OUTPUT);
   pinMode(addressSelect1, OUTPUT);
@@ -273,12 +278,34 @@ void setup() {
 void loop() {
 
   usbMIDI.read();
-  
-  // Echo incoming MIDI messages out over USB.
+
+
   MIDI.turnThruOff(); // Turn off midi through. Stops notes from AX73 keyboard looping back and playing twice.
-  if (MIDI.read()) {  
+
+  // Echo incoming MIDI messages out over USB.
+  if (Serial1.available() > 0){
+    lastByte = Serial1.peek();
+    if (lastByte == 240){ // Watch for MIDI SysEx Byte
+      Serial.println ("SysEx Arrived");
+      //This section is neccesary because MIDI.read does not recognize the SysEx messages generate dby the AX73 as MIDI messages.
+      int i = 0;
+      while (i < 5205){ // Build SysEx message array.
+        if (Serial1.available() > 0){
+          sysExArray[i] = Serial1.read();
+          i++;
+        }
+      }
+      for (int i = 0; i < 5205; i++){
+        Serial.print (i);
+        Serial.print (" ");
+        Serial.println (sysExArray [i]); 
+      }
+      usbMIDI.sendSysEx (5205, sysExArray, true); // Send SysEx message.
+    }  
+    if (MIDI.read()) {
+    Serial.println ("MIDI Read!");  
     inType = MIDI.getType();
-    switch (inType) {
+      switch (inType) {
       case midi::NoteOn: 
         usbMIDI.sendNoteOn (MIDI.getData1(), MIDI.getData2(), MIDI.getChannel());
         break;
@@ -289,13 +316,16 @@ void loop() {
         usbMIDI.sendControlChange (MIDI.getData1(), MIDI.getData2(), MIDI.getChannel()); 
         break;
       case midi::PitchBend: 
-        // The AX73 only sends 7 bit bitch bend data - the first byte of the MIDI message is empty. 
+        // The AX73 only sends 7 bit pitch bend data - the first byte of the MIDI message is empty. 
         // To get the full resolution out of a controller that is sending 14 bit pitchbend data, this code would need to be modified. 
         inPitchBend = (MIDI.getData2() - 64) << 7; // Conversion from unsigned 7 bit pitch bend value to signed 14 bit value
         usbMIDI.sendPitchBend (inPitchBend, MIDI.getChannel());
         break;
+      default:
+        break;
+      }
     }
-  }    
+  }
   if ((millis() - delayStart) >= DELAY_TIME) { // only check control positions and send midi cc every DELAY_TIME
     delayStart += DELAY_TIME; // this prevents drift in the delays
 
