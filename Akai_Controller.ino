@@ -438,7 +438,7 @@ void threeBitWrite(byte bit1, byte bit2, byte bit3) {
 
 // Check to see if control positon has changed. If yes, send updated midi cc value.
 // divs is the number of divisions if control is to be treated as a switch. For a four-position switch, divs = 4. For a continuous control, divs = 0
-// invert is to invert the control (127 = 0 aand 0 = 127). int = 1 for invert. int = 0 for non-inverted.
+// invert is to invert the control (127 = 0 aand 0 = 127). invert = 1 for invert. invert = 0 for non-inverted.
 void sendMIDIData(int param, ResponsiveAnalogRead *respParam, int *paramValue, int *paramValueLag, float divs, int invert) {
   respParam->update(); // update responsive parameter from mux output
   float raw = respParam->getValue(); // pull in raw control value from adc
