@@ -1,4 +1,3 @@
-#include <MIDIUSB.h>
 #include <ResponsiveAnalogRead.h>
 #include <MIDIMod.h>
 
@@ -310,7 +309,7 @@ void loop() {
           i++;
         }
       }
-      for (int i = 0; i < 5205; i++){
+      for (int i = 0; i < 5205; i++){ // THe sysex dump will not work properly without this section. I have no idea why, for now.
         Serial.print (i);
         Serial.print (" ");
         Serial.println (sysExArray [i]); 
@@ -361,8 +360,6 @@ void loop() {
     sendMIDIData(Chorus, &respChorus, &ChorusValue, &ChorusValueLag, 3, 0); //switchMux
 
     threeBitWrite(0, 1, 0); // select 74HCT4051 channel 2 (of 0 to 7)
-    int val = analogRead(21);
-    Serial.println(val);
 
     sendMIDIData(vcoEGDepth, &respvcoEGDepth, &vcoEGDepthValue, &vcoEGDepthValueLag, 1, 0); //potMux1
     sendMIDIData(VCALevel, &respVCALevel, &VCALevelValue, &VCALevelValueLag, 1, 0); //potMux2
